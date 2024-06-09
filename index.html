@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canhão de Projéteis</title>
+    <style>
+             #canhao {
+                width: 104px; /* 50% de 208px */
+height: 59.5px; /* 50% de 119px */
+            background-image: url('canhao.png');
+            background-size: cover;
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            transform-origin: left center;
+        }
+
+        #projetil {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            position: absolute;
+            display: none; /* Esconde o projétil inicialmente */
+        }
+
+        #infoForca {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+        }
+
+        .barraForca {
+            width: 100px;
+            height: 10px;
+            background-color: lightgray;
+            margin-bottom: 5px;
+        }
+
+        .barraProgresso {
+            height: 100%;
+            background-color: green;
+        }
+    </style>
+</head>
+<body>
+    <div id="infoForca">
+        <div>Força Atual: <span id="forcaAtual">0</span></div>
+        <div class="barraForca">
+            <div id="barraProgresso" class="barraProgresso" style="width: 0;"></div>
+        </div>
+    </div>
+    <div id="canhao"></div>
+    <div id="projetil"></div>
+
+    <script>
+        let angulo = 45; // Ângulo inicial do canhão em graus
+        let forca = 0; // Força inicial do projétil
+        let intervalID = null;
+        let projetilAnterior = null;
+        let projetilAtual = null;
+
+        document.addEventListener('mousemove', (event) => {
+            const canhao = document.getElementById('canhao');
+            const retangulo = canhao.getBoundingClientRect();
+            const centroX = retangulo.left;
+            const centroY = retangulo.top + retangulo.height / 2;
+
+            const deltaX = event.clientX - centroX;
+            const deltaY = centroY - event.clientY;
+            angulo = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+
+            canhao.style.transform = `rotate(${-angulo}deg)`;
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' && intervalID === null) {
+                // Limpa a bolinha anterior, se existir
+                if (projetilAnterior) {
+                    projetilAnterior.remove();
+                    projetilAnterior = null;
+                }
+
+                // Inicia a força ao pressionar a tecla espaço
+                intervalID = setInterval(() => {
+                    if (forca < 100) {
+                        forca += 5; // Aumenta a força enquanto a tecla estiver pressionada
+                        atualizarInfoForca(forca);
+                    }
+                }, 100);
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'Space') {
+                clearInterval(intervalID);
+                intervalID = null;
+                atirar(forca);
+                forca = 0; // Reseta a força após o disparo
+                atualizarInfoForca(forca);
+            }
+        });
+
+        function atirar(forcaInicial) {
+            const projetil = document.createElement('div');
+            projetil.className = 'projetil';
+            const canhao = document.getElementById('canhao');
+            const anguloRad = -angulo * Math.PI / 180; // Converte o ângulo para radianos
+
+            // Coloca o projétil na posição inicial do canhão
+            const retangulo = canhao.getBoundingClientRect();
+            const centroX = retangulo.left + retangulo.width * Math.cos(anguloRad);
+            const centroY = retangulo.top + retangulo.height / 2 - retangulo.width * Math.sin(anguloRad);
+
+            projetil.style.left = `${centroX}px`;
+            projetil.style.bottom = `${window.innerHeight - centroY}px`;
+            projetil.style.display = 'block';
+            projetil.style.position = 'absolute';
+            projetil.style.width = '20px';
+            projetil.style.height = '20px';
+            projetil.style.backgroundColor = 'red';
+            projetil.style.borderRadius = '50%';
+
+            document.body.appendChild(projetil);
+            projetilAnterior = projetil;
+
+            let posicaoX = centroX;
+            let posicaoY = window.innerHeight - centroY;
+            let velocidadeX = forcaInicial * Math.cos(anguloRad);
+            let velocidadeY = forcaInicial * Math.sin(anguloRad);
+            const gravidade = 0.5; // Valor da gravidade
+            const coeficienteRestituicao = 0.6; // Coeficiente de restituição para colisões
+            const limiteVelocidade = 0.5; // Limiar para considerar o projétil em repouso
+
+            const intervalo = setInterval(() => {
+                // Atualiza a posição com base na velocidade
+                posicaoX += velocidadeX;
+                posicaoY -= velocidadeY;
+
+                // Aplica a gravidade
+                velocidadeY += gravidade;
+
+                // Verifica colisão com o chão
+                if (posicaoY <= 0) {
+                    posicaoY = 0;
+                    velocidadeY = -velocidadeY * coeficienteRestituicao; // Perda de energia na colisão
+                    velocidadeX *= coeficienteRestituicao; // Perda de energia na colisão
+                }
+
+                // Verifica colisão com as paredes
+                if (posicaoX <= 0 || posicaoX >= window.innerWidth - 20) { // 20 é o tamanho do projetil
+                    velocidadeX = -velocidadeX * coeficienteRestituicao; // Perda de energia na colisão
+                    if (posicaoX <= 0) posicaoX = 0;
+                    if (posicaoX >= window.innerWidth - 20) posicaoX = window.innerWidth - 20;
+                }
+
+                // Verifica colisão com o topo da tela
+                if (posicaoY >= window.innerHeight - 20) { // 20 é o tamanho do projetil
+                    posicaoY = window.innerHeight - 20;
+                    velocidadeY = -velocidadeY * coeficienteRestituicao; // Perda de energia na colisão
+                   
+                    velocidadeX *= coeficienteRestituicao; // Perda de energia na colisão
+                }
+
+                // Atualiza a posição do projétil
+                projetil.style.left = `${posicaoX}px`;
+                projetil.style.bottom = `${posicaoY}px`;
+
+                // Verifica se o projétil está em repouso (velocidade muito pequena)
+                if (Math.abs(velocidadeX) < limiteVelocidade && Math.abs(velocidadeY) < limiteVelocidade) {
+                    clearInterval(intervalo);
+                    
+
+                    // Ajusta a posição do projétil para que fique encostado no chão
+                    if (posicaoY !== 0) {
+                        posicaoY = 0;
+                        projetil.style.bottom = '0';
+                    }
+                }
+            }, 20);
+        }
+
+        function atualizarInfoForca(forcaAtual) {
+            const barraProgresso = document.getElementById('barraProgresso');
+            const forcaMaxima = 100; // Força máxima
+            const porcentagemForca = Math.min((forcaAtual / forcaMaxima) * 100, 100); // Limita a 100%
+            barraProgresso.style.width = `${porcentagemForca}%`;
+
+            const forcaAtualTexto = document.getElementById('forcaAtual');
+            forcaAtualTexto.textContent = forcaAtual;
+        }
+    </script>
+</body>
+</html>
